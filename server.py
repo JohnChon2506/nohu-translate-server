@@ -3,6 +3,7 @@ from openai import OpenAI
 import os
 
 app = Flask(__name__)
+
 VALID_KEYS = {
     "CHONCHON-NOHU169",
     "JOHN-NOHU033",
@@ -11,7 +12,8 @@ VALID_KEYS = {
 
 client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
-@app.route("/translate", methods=["POST"])
+
+# ===== VERIFY KEY =====
 @app.route("/verify", methods=["POST"])
 def verify():
     data = request.get_json()
@@ -21,18 +23,22 @@ def verify():
         return jsonify({"valid": True})
     else:
         return jsonify({"valid": False}), 403
+
+
+# ===== TRANSLATE =====
+@app.route("/translate", methods=["POST"])
 def translate():
     data = request.json
     text = data.get("text", "")
     target = data.get("target", "Vietnamese")
 
     prompt = f"""
-    Detect the language automatically and translate to {target}.
-    Only return translated text.
+Detect the language automatically and translate to {target}.
+Only return translated text.
 
-    Text:
-    {text}
-    """
+Text:
+{text}
+"""
 
     try:
         r = client.responses.create(
@@ -47,5 +53,3 @@ def translate():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
-
-
