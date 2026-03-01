@@ -35,22 +35,25 @@ def translate():
     text = data.get("text", "")
     target = data.get("target", "Vietnamese")
 
-    prompt = f"""Detect the language automatically and translate to {target}.
-Only return translated text.
-Text:
-{text}"""
+    prompt = f"Translate to {target}. Only return translated text:\n{text}"
 
     try:
         client = get_client()
 
-        r = client.chat.completions.create(
-            model="gpt-4.1-mini",
-            messages=[{"role": "user", "content": prompt}]
+        print("CALLING OPENAI...")  # để xem log
+
+        r = client.responses.create(
+            model="gpt-4o-mini",
+            input=prompt
         )
 
-        return jsonify({"result": r.choices[0].message.content.strip()})
+        result = r.output[0].content[0].text
+        print("RESULT:", result)
+
+        return jsonify({"result": result})
 
     except Exception as e:
-        logging.exception("Translate error")
+        print("OPENAI ERROR:", e)
         return jsonify({"error": str(e)}), 500
+
 
