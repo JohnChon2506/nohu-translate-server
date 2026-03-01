@@ -1,6 +1,9 @@
 from flask import Flask, request, jsonify
 from openai import OpenAI
 import os
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
 
@@ -10,7 +13,11 @@ VALID_KEYS = {
     "CAOGE-55555"
 }
 
-client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+def get_client():
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("Missing OPENAI_API_KEY environment variable")
+    return OpenAI(api_key=api_key)
 
 @app.route("/", methods=["GET"])
 def health_check():
@@ -20,10 +27,7 @@ def health_check():
 def verify():
     data = request.get_json()
     key = data.get("key")
-    if key in VALID_KEYS:
-        return jsonify({"valid": True})
-    else:
-        return jsonify({"valid": False}), 403
+    return jsonify({"valid": key in VALID_KEYS})
 
 @app.route("/translate", methods=["POST"])
 def translate():
@@ -37,16 +41,15 @@ Text:
 {text}"""
 
     try:
+        client = get_client()
+
         r = client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
+            messages=[{"role": "user", "content": prompt}]
         )
-        return jsonify({"result": r.choices[0].message.content.strip()})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+        return jsonify({"result": r.choices[0].message.content.strip()})
+
+    except Exception as e:
+        logging.exception("Translate error")
+        return jsonify({"error": str(e)}), 500
