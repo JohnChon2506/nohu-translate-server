@@ -49,13 +49,14 @@ def translate():
 
         logging.info("Calling OpenAI...")
 
-        response = client.responses.create(
-            model="gpt-4.1-mini",
-            input=prompt
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
         )
 
-        # Lấy text an toàn (không index cứng)
-        result = response.output_text
+        result = response.choices[0].message.content
 
         if not result:
             raise RuntimeError("Empty response from model")
