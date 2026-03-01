@@ -12,12 +12,10 @@ VALID_KEYS = {
 
 client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
-# ✅ THÊM ROUTE NÀY — để cron-job ping giữ server sống
 @app.route("/", methods=["GET"])
 def health_check():
     return jsonify({"status": "ok", "message": "Server is running"})
 
-# ===== VERIFY KEY =====
 @app.route("/verify", methods=["POST"])
 def verify():
     data = request.get_json()
@@ -27,24 +25,25 @@ def verify():
     else:
         return jsonify({"valid": False}), 403
 
-# ===== TRANSLATE =====
 @app.route("/translate", methods=["POST"])
 def translate():
     data = request.json
     text = data.get("text", "")
     target = data.get("target", "Vietnamese")
-    prompt = f"""
-Detect the language automatically and translate to {target}.
+
+    prompt = f"""Detect the language automatically and translate to {target}.
 Only return translated text.
 Text:
-{text}
-"""
+{text}"""
+
     try:
-        r = client.responses.create(
-            model="gpt-4.1-mini",
-            input=prompt
+        r = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
         )
-        return jsonify({"result": r.output_text.strip()})
+        return jsonify({"result": r.choices[0].message.content.strip()})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
