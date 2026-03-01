@@ -44,7 +44,7 @@ Text:
         client = get_client()
 
         r = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4.1-mini",
             messages=[{"role": "user", "content": prompt}]
         )
 
@@ -53,3 +53,4 @@ Text:
     except Exception as e:
         logging.exception("Translate error")
         return jsonify({"error": str(e)}), 500
+
