@@ -10,6 +10,7 @@ app = Flask(__name__)
 VALID_KEYS = {
     "CHONCHON-NOHU169",
     "JOHN-NOHU033",
+    "azy-033-htz-169rtg",
     "CAOGE-55555"
 }
 
@@ -68,3 +69,4 @@ def translate():
     except Exception as e:
         logging.exception("Translate failed")
         return jsonify({"error": str(e)}), 500
+
