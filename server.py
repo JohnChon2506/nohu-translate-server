@@ -13,8 +13,8 @@ VALID_KEYS = {
     "CAOGE-55555"
 }
 
-# Glossary thuật ngữ ZH→VI — 516 terms, sync từ TranslatorService.cs
-SYSTEM_PROMPT = """ + '"""' + system_prompt + '"""' + """
+# Glossary thuật ngữ ZH→VI — giữ nguyên SYSTEM_PROMPT của bạn
+SYSTEM_PROMPT = ""  # <-- giữ nguyên phần này của bạn
 
 def get_client():
     api_key = os.getenv("OPENAI_API_KEY")
@@ -26,6 +26,10 @@ def get_client():
 def health_check():
     return jsonify({"status": "ok", "message": "Server is running"})
 
+@app.route("/version", methods=["GET"])
+def version():
+    return jsonify({"version": "v5.4.0", "url": ""})
+
 @app.route("/verify", methods=["POST"])
 def verify():
     data = request.get_json(silent=True) or {}
@@ -35,13 +39,18 @@ def verify():
 @app.route("/translate", methods=["POST"])
 def translate():
     data = request.get_json(silent=True) or {}
+
+    # ✅ KIỂM TRA LICENSE KEY TRƯỚC KHI DỊCH
+    key = data.get("key", "")
+    if key not in VALID_KEYS:
+        return jsonify({"error": "Unauthorized. Vui lòng nhập KEY kích hoạt hợp lệ."}), 403
+
     text = data.get("text", "").strip()
     target = data.get("target", "Vietnamese")
     if not text:
         return jsonify({"error": "Empty text"}), 400
 
     prompt = f"Dịch sang {target}:\n{text}"
-
     try:
         client = get_client()
         logging.info("Calling OpenAI...")
