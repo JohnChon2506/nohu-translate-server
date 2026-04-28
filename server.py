@@ -14,7 +14,11 @@ VALID_KEYS = {
 }
 
 # Glossary thuật ngữ ZH→VI — giữ nguyên SYSTEM_PROMPT của bạn
-SYSTEM_PROMPT = ""  # <-- giữ nguyên phần này của bạn
+SYSTEM_PROMPT = """Bạn là chuyên gia dịch thuật chuyên nghiệp trong lĩnh vực game online và cờ bạc trực tuyến.
+Nhiệm vụ: Dịch chính xác từ Tiếng Trung sang Tiếng Việt.
+Giữ nguyên các thuật ngữ kỹ thuật, tên game, số tiền, tên sự kiện.
+Dịch tự nhiên, dễ hiểu cho nhân viên người Việt.
+Chỉ trả về bản dịch, không giải thích thêm."""
 
 def get_client():
     api_key = os.getenv("OPENAI_API_KEY")
