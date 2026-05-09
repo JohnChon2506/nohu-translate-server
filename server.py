@@ -117,6 +117,37 @@ def restore_placeholders(text: str, placeholder_map: dict) -> str:
         text = text.replace(ph, zh_term)
     return text
 
+def validate_vi_to_zh_quality(result: str, original_text: str) -> tuple:
+    """
+    Kiểm tra chất lượng dịch VI→ZH.
+    Returns: (is_valid: bool, error_message: str)
+    """
+    # Đếm ký tự Hán trong result
+    zh_chars = sum(1 for c in result if '\u4e00' <= c <= '\u9fff')
+    # Đếm ký tự Latin (a-z, A-Z) trong result — không nên có nếu dịch sang ZH
+    latin_chars = sum(1 for c in result if ('a' <= c.lower() <= 'z'))
+    # Đếm ký tự có dấu tiếng Việt trong result
+    vi_chars = sum(1 for c in result if c in "àáâãèéêìíòóôõùúýăđơưạảấầẩẫậắằẳặẵổỗộổỡợụủứừựửữÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐƠƯẠẢẤẦẨẪẬẮẰẲẶẴỔỖỘỔỠỢỤỦỨỪỰỬỮ")
+    
+    total_chars = len(result.replace(" ", ""))
+    
+    # Nếu result có >20% ký tự Latin hoặc >10% ký tự tiếng Việt → dịch không xong
+    if total_chars > 0:
+        latin_ratio = latin_chars / total_chars
+        vi_ratio = vi_chars / total_chars
+        zh_ratio = zh_chars / total_chars
+        
+        logging.info(f"[Quality Check] ZH: {zh_ratio:.1%} ({zh_chars}), Latin: {latin_ratio:.1%} ({latin_chars}), VI: {vi_ratio:.1%} ({vi_chars})")
+        
+        if latin_ratio > 0.20:
+            return False, f"Result còn {latin_chars} ký tự Latin ({latin_ratio:.0%}) — GPT dịch không hoàn chỉnh"
+        if vi_ratio > 0.10:
+            return False, f"Result còn {vi_chars} ký tự tiếng Việt ({vi_ratio:.0%}) — GPT dịch không hoàn chỉnh"
+        if zh_ratio < 0.40:
+            return False, f"Result chỉ có {zh_chars} ký tự Hán ({zh_ratio:.0%}) — không đủ để gọi là bản dịch tiếng Trung"
+    
+    return True, ""
+
 # ══════════════════════════════════════════════════════════
 #  SYSTEM PROMPT — động theo target language
 # ══════════════════════════════════════════════════════════
@@ -142,7 +173,8 @@ QUY TẮC BẮT BUỘC — PHẢI TUÂN THỦ TUYỆT ĐỐI:
 3. QUAN TRỌNG NHẤT: Các token dạng __T0__ __T1__ __T2__ ... là mã đặc biệt của hệ thống. Sao chép NGUYÊN VẸN vào bản dịch, không dịch, không sửa, không xóa, không thêm ký tự nào.
 4. Giữ nguyên: số tiền (1000k, 2000k...), ký tự đặc biệt, dấu câu gốc.
 5. Dịch tự nhiên, chính xác, phù hợp với nhân viên vận hành game online.
-6. Nếu văn bản đã là {target_label}, trả về nguyên văn không thay đổi."""
+6. Nếu văn bản đã là {target_label}, trả về nguyên văn không thay đổi.
+7. QUAN TRỌNG: Khi dịch sang Tiếng Trung, TOÀN BỘ văn bản phải được dịch sang chữ Hán, KHÔNG để sót ký tự tiếng Việt hay Latin."""
 
 
 def get_client():
@@ -159,7 +191,7 @@ def health_check():
 
 @app.route("/version", methods=["GET"])
 def version():
-    return jsonify({"version": "v5.6.0", "url": ""})
+    return jsonify({"version": "v5.7.0", "url": ""})
 
 
 @app.route("/verify", methods=["POST"])
@@ -185,6 +217,7 @@ def translate():
 
     # ── Preprocess glossary VI→ZH trên server ──────────────
     placeholder_map = {}
+    original_text = text  # Lưu text gốc để validate
     if target == "Chinese":
         text, placeholder_map = apply_vi_zh_glossary(text)
         if placeholder_map:
@@ -196,8 +229,12 @@ def translate():
         client = get_client()
         logging.info(f"Calling OpenAI... target={target}, len={len(text)}")
 
+        # Chọn model dựa trên chiều dịch — GPT-4o cho VI→Chinese (khó), mini cho còn lại
+        model = "gpt-4o" if target == "Chinese" else "gpt-4o-mini"
+        logging.info(f"Using model: {model}")
+
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model,
             messages=[
                 {"role": "system", "content": build_system_prompt(target)},
                 {"role": "user",   "content": user_prompt}
@@ -222,6 +259,13 @@ def translate():
         if any(kw in result for kw in refusal_keywords):
             logging.warning(f"GPT refused: {result[:80]}")
             return jsonify({"error": "Model từ chối — fallback sang glossary"}), 422
+
+        # ── [NEW] Validate VI→Chinese quality ────────────
+        if target == "Chinese":
+            is_valid, error_msg = validate_vi_to_zh_quality(result, original_text)
+            if not is_valid:
+                logging.warning(f"VI→ZH quality check failed: {error_msg}")
+                return jsonify({"error": f"Chất lượng dịch không đạt — {error_msg}"}), 422
 
         logging.info("Translate success")
         return jsonify({"result": result})
