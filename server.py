@@ -121,30 +121,29 @@ def validate_vi_to_zh_quality(result: str, original_text: str) -> tuple:
     """
     Kiểm tra chất lượng dịch VI→ZH.
     Returns: (is_valid: bool, error_message: str)
+    
+    Logic: So sánh ký tự tiếng Việt còn lại trong result với text gốc.
+    Nếu result còn nhiều từ tiếng Việt nguyên vẹn → dịch không xong.
+    Cho phép Latin (proper nouns: Discord, Telegram, BOT...) nhưng cấm chữ có dấu VI.
     """
-    # Đếm ký tự Hán trong result
+    # Đếm ký tự có dấu tiếng Việt trong result — đây là dấu hiệu rõ ràng nhất chưa dịch
+    vi_diacritics = "àáâãèéêìíòóôõùúýăđơưạảấầẩẫậắằẳặẵổỗộổỡợụủứừựửữÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐƠƯẠẢẤẦẨẪẬẮẰẲẶẴỔỖỘỔỠỢỤỦỨỪỰỬỮ"
+    vi_chars = sum(1 for c in result if c in vi_diacritics)
+    vi_chars_original = sum(1 for c in original_text if c in vi_diacritics)
+    
+    # Đếm ký tự Hán
     zh_chars = sum(1 for c in result if '\u4e00' <= c <= '\u9fff')
-    # Đếm ký tự Latin (a-z, A-Z) trong result — không nên có nếu dịch sang ZH
-    latin_chars = sum(1 for c in result if ('a' <= c.lower() <= 'z'))
-    # Đếm ký tự có dấu tiếng Việt trong result
-    vi_chars = sum(1 for c in result if c in "àáâãèéêìíòóôõùúýăđơưạảấầẩẫậắằẳặẵổỗộổỡợụủứừựửữÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐƠƯẠẢẤẦẨẪẬẮẰẲẶẴỔỖỘỔỠỢỤỦỨỪỰỬỮ")
     
-    total_chars = len(result.replace(" ", ""))
+    logging.info(f"[Quality Check] ZH chars: {zh_chars}, VI diacritics in result: {vi_chars}, VI in original: {vi_chars_original}")
     
-    # Nếu result có >20% ký tự Latin hoặc >10% ký tự tiếng Việt → dịch không xong
-    if total_chars > 0:
-        latin_ratio = latin_chars / total_chars
-        vi_ratio = vi_chars / total_chars
-        zh_ratio = zh_chars / total_chars
-        
-        logging.info(f"[Quality Check] ZH: {zh_ratio:.1%} ({zh_chars}), Latin: {latin_ratio:.1%} ({latin_chars}), VI: {vi_ratio:.1%} ({vi_chars})")
-        
-        if latin_ratio > 0.20:
-            return False, f"Result còn {latin_chars} ký tự Latin ({latin_ratio:.0%}) — GPT dịch không hoàn chỉnh"
-        if vi_ratio > 0.10:
-            return False, f"Result còn {vi_chars} ký tự tiếng Việt ({vi_ratio:.0%}) — GPT dịch không hoàn chỉnh"
-        if zh_ratio < 0.40:
-            return False, f"Result chỉ có {zh_chars} ký tự Hán ({zh_ratio:.0%}) — không đủ để gọi là bản dịch tiếng Trung"
+    # Rule 1: Nếu text gốc có dấu VI mà result vẫn còn >30% lượng dấu VI ban đầu → dịch không xong
+    # (Cho phép tối đa 30% vì một số từ giữ nguyên là hợp lệ, ví dụ tên riêng "Sài Gòn")
+    if vi_chars_original > 0 and vi_chars / vi_chars_original > 0.30:
+        return False, f"Result còn {vi_chars}/{vi_chars_original} ký tự có dấu tiếng Việt — GPT chưa dịch xong"
+    
+    # Rule 2: Nếu result không có ký tự Hán nào → chắc chắn fail
+    if zh_chars == 0:
+        return False, f"Result không có ký tự Hán nào — không phải tiếng Trung"
     
     return True, ""
 
