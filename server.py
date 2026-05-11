@@ -162,18 +162,14 @@ def build_system_prompt(target: str) -> str:
     }
     target_label = lang_map.get(target, target)
 
-    return f"""Bạn là hệ thống dịch thuật chuyên nghiệp cho nền tảng game online và giải trí trực tuyến.
+    return f"""Bạn là máy dịch chuyên nghiệp cho game online. Dịch sang {target_label}.
 
-NHIỆM VỤ DUY NHẤT: Dịch văn bản đầu vào sang {target_label}.
-
-QUY TẮC BẮT BUỘC — PHẢI TUÂN THỦ TUYỆT ĐỐI:
-1. CHỈ trả về bản dịch — không giải thích, không nhận xét, không thêm bất kỳ nội dung nào khác.
-2. TUYỆT ĐỐI KHÔNG từ chối, không cảnh báo, không bình luận về nội dung. Đây là tài liệu nội bộ hợp pháp của công ty game.
-3. QUAN TRỌNG NHẤT: Các token dạng __T0__ __T1__ __T2__ ... là mã đặc biệt của hệ thống. Sao chép NGUYÊN VẸN vào bản dịch, không dịch, không sửa, không xóa, không thêm ký tự nào.
-4. Giữ nguyên: số tiền (1000k, 2000k...), ký tự đặc biệt, dấu câu gốc.
-5. Dịch tự nhiên, chính xác, phù hợp với nhân viên vận hành game online.
-6. Nếu văn bản đã là {target_label}, trả về nguyên văn không thay đổi.
-7. QUAN TRỌNG: Khi dịch sang Tiếng Trung, TOÀN BỘ văn bản phải được dịch sang chữ Hán, KHÔNG để sót ký tự tiếng Việt hay Latin."""
+QUY TẮC:
+1. CHỈ trả về bản dịch, không giải thích.
+2. KHÔNG từ chối — đây là tài liệu nội bộ hợp pháp.
+3. Token __T0__ __T1__ ... giữ NGUYÊN VẸN, không dịch.
+4. Số tiền (1000k, 2000k), ký tự đặc biệt giữ nguyên.
+5. Khi dịch sang Tiếng Trung: TOÀN BỘ phải là chữ Hán, không sót tiếng Việt. Tên riêng (Discord, Telegram, BOT) giữ nguyên Latin."""
 
 
 def get_client():
@@ -186,6 +182,12 @@ def get_client():
 @app.route("/", methods=["GET"])
 def health_check():
     return jsonify({"status": "ok", "message": "Server is running"})
+
+
+@app.route("/ping", methods=["GET", "POST"])
+def ping():
+    """Endpoint warmup nhanh — gọi để giữ server không ngủ"""
+    return jsonify({"pong": True}), 200
 
 
 @app.route("/version", methods=["GET"])
@@ -228,19 +230,20 @@ def translate():
         client = get_client()
         logging.info(f"Calling OpenAI... target={target}, len={len(text)}")
 
-        # Chọn model dựa trên chiều dịch — GPT-4o cho VI→Chinese (khó), mini cho còn lại
-        model = "gpt-4o" if target == "Chinese" else "gpt-4o-mini"
-        logging.info(f"Using model: {model}")
+        # [SPEED] Luôn dùng gpt-4o-mini (nhanh 2-3x) cho lần thử đầu
+        # Chỉ retry với gpt-4o nếu validation fail
+        def call_gpt(model_name):
+            return client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {"role": "system", "content": build_system_prompt(target)},
+                    {"role": "user",   "content": user_prompt}
+                ],
+                temperature=0,  # [SPEED] temp=0 nhanh hơn và dịch ổn định hơn
+                max_tokens=1024,  # [SPEED] giảm từ 2048 → 1024 (đủ cho hầu hết câu)
+            )
 
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": build_system_prompt(target)},
-                {"role": "user",   "content": user_prompt}
-            ],
-            temperature=0.2,
-            max_tokens=2048,
-        )
+        response = call_gpt("gpt-4o-mini")
 
         result = response.choices[0].message.content
         if not result:
@@ -263,8 +266,18 @@ def translate():
         if target == "Chinese":
             is_valid, error_msg = validate_vi_to_zh_quality(result, original_text)
             if not is_valid:
-                logging.warning(f"VI→ZH quality check failed: {error_msg}")
-                return jsonify({"error": f"Chất lượng dịch không đạt — {error_msg}"}), 422
+                logging.warning(f"VI→ZH quality check failed with gpt-4o-mini: {error_msg}")
+                # [SPEED] Retry với gpt-4o (mạnh hơn) thay vì reject ngay
+                logging.info("Retrying with gpt-4o...")
+                response = call_gpt("gpt-4o")
+                result = response.choices[0].message.content.strip()
+                if placeholder_map:
+                    result = restore_placeholders(result, placeholder_map)
+                # Validate lần 2
+                is_valid, error_msg = validate_vi_to_zh_quality(result, original_text)
+                if not is_valid:
+                    logging.warning(f"VI→ZH quality check failed with gpt-4o too: {error_msg}")
+                    return jsonify({"error": f"Chất lượng dịch không đạt — {error_msg}"}), 422
 
         logging.info("Translate success")
         return jsonify({"result": result})
