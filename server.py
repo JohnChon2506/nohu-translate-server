@@ -1,12 +1,32 @@
-from flask import Flask, request, jsonify
+# app.py — NOHU169 Translate Server v6.0
+# ═══════════════════════════════════════════════════════════════
+#  Thay đổi so với v5.7:
+#  - Model: gpt-4o-mini → gpt-4.1-mini / gpt-4o → gpt-4.1
+#  - OpenAI call có timeout=25s (tránh treo vô thời hạn)
+#  - Global error handler (Flask không crash khi exception)
+#  - Request Semaphore: tối đa 5 request OpenAI đồng thời
+#  - Structured logging với request_id để dễ debug
+# ═══════════════════════════════════════════════════════════════
+from flask import Flask, request, jsonify, g
 from openai import OpenAI
 import os
 import re
 import logging
+import threading
+import uuid
+import time
 
-logging.basicConfig(level=logging.INFO)
+# ── Logging ───────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+logger = logging.getLogger(__name__)
+
 app = Flask(__name__)
 
+# ── Config ────────────────────────────────────────────────────
 VALID_KEYS = {
     "CHONCHON-NOHU169",
     "JOHN-NOHU033",
@@ -14,12 +34,14 @@ VALID_KEYS = {
     "CAOGE-55555"
 }
 
-# ══════════════════════════════════════════════════════════
-#  GLOSSARY VI→ZH — thay thế TRƯỚC khi gửi GPT
-#  Đảm bảo GPT không bao giờ dịch sai thuật ngữ chuyên ngành
-# ══════════════════════════════════════════════════════════
+# Semaphore: giới hạn tối đa 5 request OpenAI chạy đồng thời
+# Tránh Railway bị OOM khi nhiều user dịch cùng lúc
+MAX_CONCURRENT = 5
+_semaphore = threading.Semaphore(MAX_CONCURRENT)
+
+# ── GLOSSARY VI→ZH ───────────────────────────────────────────
 GLOSSARY_VI_ZH = {
-    # SẢNH GAME — quan trọng nhất
+    # SẢNH GAME
     "nổ hũ":        "电子",
     "bắn cá":       "捕鱼",
     "đá gà":        "斗鸡",
@@ -94,7 +116,6 @@ GLOSSARY_VI_ZH = {
 }
 
 def apply_vi_zh_glossary(text: str) -> tuple:
-    """Thay thuật ngữ VI bằng placeholder trước khi gửi GPT."""
     sorted_terms = sorted(GLOSSARY_VI_ZH.keys(), key=len, reverse=True)
     placeholder_map = {}
     idx = 0
@@ -108,9 +129,7 @@ def apply_vi_zh_glossary(text: str) -> tuple:
     return text, placeholder_map
 
 def restore_placeholders(text: str, placeholder_map: dict) -> str:
-    """Khôi phục placeholder → thuật ngữ ZH chuẩn."""
     for ph, zh_term in placeholder_map.items():
-        # Xử lý GPT có thể thêm/bỏ space quanh placeholder
         text = text.replace(f" {ph} ", zh_term)
         text = text.replace(f" {ph}", zh_term)
         text = text.replace(f"{ph} ", zh_term)
@@ -118,38 +137,19 @@ def restore_placeholders(text: str, placeholder_map: dict) -> str:
     return text
 
 def validate_vi_to_zh_quality(result: str, original_text: str) -> tuple:
-    """
-    Kiểm tra chất lượng dịch VI→ZH.
-    Returns: (is_valid: bool, error_message: str)
-    
-    Logic: So sánh ký tự tiếng Việt còn lại trong result với text gốc.
-    Nếu result còn nhiều từ tiếng Việt nguyên vẹn → dịch không xong.
-    Cho phép Latin (proper nouns: Discord, Telegram, BOT...) nhưng cấm chữ có dấu VI.
-    """
-    # Đếm ký tự có dấu tiếng Việt trong result — đây là dấu hiệu rõ ràng nhất chưa dịch
     vi_diacritics = "àáâãèéêìíòóôõùúýăđơưạảấầẩẫậắằẳặẵổỗộổỡợụủứừựửữÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐƠƯẠẢẤẦẨẪẬẮẰẲẶẴỔỖỘỔỠỢỤỦỨỪỰỬỮ"
-    vi_chars = sum(1 for c in result if c in vi_diacritics)
+    vi_chars          = sum(1 for c in result        if c in vi_diacritics)
     vi_chars_original = sum(1 for c in original_text if c in vi_diacritics)
-    
-    # Đếm ký tự Hán
-    zh_chars = sum(1 for c in result if '\u4e00' <= c <= '\u9fff')
-    
-    logging.info(f"[Quality Check] ZH chars: {zh_chars}, VI diacritics in result: {vi_chars}, VI in original: {vi_chars_original}")
-    
-    # Rule 1: Nếu text gốc có dấu VI mà result vẫn còn >30% lượng dấu VI ban đầu → dịch không xong
-    # (Cho phép tối đa 30% vì một số từ giữ nguyên là hợp lệ, ví dụ tên riêng "Sài Gòn")
+    zh_chars          = sum(1 for c in result        if '\u4e00' <= c <= '\u9fff')
+
+    logger.info(f"[Quality] ZH={zh_chars} VI_result={vi_chars} VI_orig={vi_chars_original}")
+
     if vi_chars_original > 0 and vi_chars / vi_chars_original > 0.30:
-        return False, f"Result còn {vi_chars}/{vi_chars_original} ký tự có dấu tiếng Việt — GPT chưa dịch xong"
-    
-    # Rule 2: Nếu result không có ký tự Hán nào → chắc chắn fail
+        return False, f"Còn {vi_chars}/{vi_chars_original} ký tự có dấu tiếng Việt"
     if zh_chars == 0:
-        return False, f"Result không có ký tự Hán nào — không phải tiếng Trung"
-    
+        return False, "Không có ký tự Hán — không phải tiếng Trung"
     return True, ""
 
-# ══════════════════════════════════════════════════════════
-#  SYSTEM PROMPT — động theo target language
-# ══════════════════════════════════════════════════════════
 def build_system_prompt(target: str) -> str:
     lang_map = {
         "Vietnamese": "Tiếng Việt",
@@ -161,7 +161,6 @@ def build_system_prompt(target: str) -> str:
         "Thai":       "Tiếng Thái",
     }
     target_label = lang_map.get(target, target)
-
     return f"""Bạn là máy dịch chuyên nghiệp cho game online. Dịch sang {target_label}.
 
 QUY TẮC:
@@ -171,120 +170,162 @@ QUY TẮC:
 4. Số tiền (1000k, 2000k), ký tự đặc biệt giữ nguyên.
 5. Khi dịch sang Tiếng Trung: TOÀN BỘ phải là chữ Hán, không sót tiếng Việt. Tên riêng (Discord, Telegram, BOT) giữ nguyên Latin."""
 
-
 def get_client():
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise RuntimeError("Missing OPENAI_API_KEY environment variable")
     return OpenAI(api_key=api_key)
 
+# ── Request logging middleware ────────────────────────────────
+@app.before_request
+def before_request():
+    g.request_id = str(uuid.uuid4())[:8]
+    g.start_time = time.time()
+    logger.info(f"[{g.request_id}] → {request.method} {request.path}")
 
+@app.after_request
+def after_request(response):
+    elapsed = (time.time() - g.start_time) * 1000
+    logger.info(f"[{g.request_id}] ← {response.status_code} ({elapsed:.0f}ms)")
+    return response
+
+# ── Global error handler — Flask không crash khi exception ────
+@app.errorhandler(Exception)
+def handle_exception(e):
+    rid = getattr(g, "request_id", "?")
+    logger.exception(f"[{rid}] Unhandled exception: {e}")
+    return jsonify({
+        "error": f"Server lỗi nội bộ: {str(e)}",
+        "request_id": rid
+    }), 500
+
+@app.errorhandler(404)
+def handle_404(e):
+    return jsonify({"error": "Endpoint không tồn tại"}), 404
+
+@app.errorhandler(405)
+def handle_405(e):
+    return jsonify({"error": "Method không được phép"}), 405
+
+# ── Endpoints ─────────────────────────────────────────────────
 @app.route("/", methods=["GET"])
 def health_check():
-    return jsonify({"status": "ok", "message": "Server is running"})
-
+    return jsonify({"status": "ok", "message": "Server is running", "version": "v6.0.0"})
 
 @app.route("/ping", methods=["GET", "POST"])
 def ping():
-    """Endpoint warmup nhanh — gọi để giữ server không ngủ"""
     return jsonify({"pong": True}), 200
-
 
 @app.route("/version", methods=["GET"])
 def version():
-    return jsonify({"version": "v5.7.0", "url": ""})
-
+    return jsonify({"version": "v6.0.0"})
 
 @app.route("/verify", methods=["POST"])
 def verify():
     data = request.get_json(silent=True) or {}
-    key = data.get("key", "")
+    key  = data.get("key", "")
     return jsonify({"valid": key in VALID_KEYS})
-
 
 @app.route("/translate", methods=["POST"])
 def translate():
+    rid  = g.request_id
     data = request.get_json(silent=True) or {}
 
+    # Auth
     key = data.get("key", "")
     if key not in VALID_KEYS:
         return jsonify({"error": "Unauthorized. Vui lòng nhập KEY kích hoạt hợp lệ."}), 403
 
-    text = data.get("text", "").strip()
+    text   = data.get("text", "").strip()
     target = data.get("target", "Vietnamese")
 
     if not text:
         return jsonify({"error": "Empty text"}), 400
 
-    # ── Preprocess glossary VI→ZH trên server ──────────────
+    if len(text) > 4000:
+        return jsonify({"error": "Text quá dài (tối đa 4000 ký tự)"}), 400
+
+    # Preprocess glossary VI→ZH
     placeholder_map = {}
-    original_text = text  # Lưu text gốc để validate
+    original_text   = text
     if target == "Chinese":
         text, placeholder_map = apply_vi_zh_glossary(text)
         if placeholder_map:
-            logging.info(f"[Glossary] {len(placeholder_map)} terms replaced: {list(placeholder_map.values())}")
+            logger.info(f"[{rid}] Glossary: {len(placeholder_map)} terms → {list(placeholder_map.values())}")
 
     user_prompt = f"Dịch toàn bộ đoạn sau sang {target}, chỉ trả về bản dịch:\n\n{text}"
 
+    # ── Acquire semaphore — giới hạn concurrent OpenAI calls ──
+    acquired = _semaphore.acquire(blocking=True, timeout=30)
+    if not acquired:
+        logger.warning(f"[{rid}] Semaphore timeout — server đang quá tải")
+        return jsonify({"error": "Server đang xử lý quá nhiều request, vui lòng thử lại sau vài giây"}), 503
+
     try:
         client = get_client()
-        logging.info(f"Calling OpenAI... target={target}, len={len(text)}")
 
-        # [SPEED] Luôn dùng gpt-4o-mini (nhanh 2-3x) cho lần thử đầu
-        # Chỉ retry với gpt-4o nếu validation fail
-        def call_gpt(model_name):
-            return client.chat.completions.create(
+        def call_gpt(model_name: str) -> str:
+            """Gọi OpenAI với timeout cứng 25 giây."""
+            logger.info(f"[{rid}] Calling {model_name} | target={target} | len={len(text)}")
+            response = client.chat.completions.create(
                 model=model_name,
                 messages=[
                     {"role": "system", "content": build_system_prompt(target)},
                     {"role": "user",   "content": user_prompt}
                 ],
-                temperature=0,  # [SPEED] temp=0 nhanh hơn và dịch ổn định hơn
-                max_tokens=1024,  # [SPEED] giảm từ 2048 → 1024 (đủ cho hầu hết câu)
+                temperature=0,
+                max_tokens=1024,
+                timeout=25      # ← timeout cứng — tránh treo vô thời hạn
             )
+            result = response.choices[0].message.content
+            if not result:
+                raise RuntimeError("Empty response from model")
+            return result.strip()
 
-        response = call_gpt("gpt-4o-mini")
+        # Lần 1: gpt-4.1-mini — nhanh, rẻ
+        result = call_gpt("gpt-4.1-mini")
 
-        result = response.choices[0].message.content
-        if not result:
-            raise RuntimeError("Empty response from model")
-
-        result = result.strip()
-
-        # ── Khôi phục placeholder → ZH chuẩn ──────────────
+        # Khôi phục placeholder
         if placeholder_map:
             result = restore_placeholders(result, placeholder_map)
-            logging.info(f"[Glossary] After restore: {result[:100]}")
+            logger.info(f"[{rid}] After restore: {result[:80]}")
 
-        # ── Phát hiện GPT từ chối ──────────────────────────
+        # Phát hiện GPT từ chối
         refusal_keywords = ["对不起", "我不能", "无法完成", "I'm sorry", "I cannot", "I'm unable"]
         if any(kw in result for kw in refusal_keywords):
-            logging.warning(f"GPT refused: {result[:80]}")
+            logger.warning(f"[{rid}] GPT refused: {result[:80]}")
             return jsonify({"error": "Model từ chối — fallback sang glossary"}), 422
 
-        # ── [NEW] Validate VI→Chinese quality ────────────
+        # Validate chất lượng VI→ZH
         if target == "Chinese":
             is_valid, error_msg = validate_vi_to_zh_quality(result, original_text)
             if not is_valid:
-                logging.warning(f"VI→ZH quality check failed with gpt-4o-mini: {error_msg}")
-                # [SPEED] Retry với gpt-4o (mạnh hơn) thay vì reject ngay
-                logging.info("Retrying with gpt-4o...")
-                response = call_gpt("gpt-4o")
-                result = response.choices[0].message.content.strip()
+                logger.warning(f"[{rid}] Quality fail (mini): {error_msg} — retry với gpt-4.1")
+
+                # Retry với gpt-4.1 — mạnh hơn
+                result = call_gpt("gpt-4.1")
                 if placeholder_map:
                     result = restore_placeholders(result, placeholder_map)
-                # Validate lần 2
+
                 is_valid, error_msg = validate_vi_to_zh_quality(result, original_text)
                 if not is_valid:
-                    logging.warning(f"VI→ZH quality check failed with gpt-4o too: {error_msg}")
+                    logger.warning(f"[{rid}] Quality fail (gpt-4.1): {error_msg}")
                     return jsonify({"error": f"Chất lượng dịch không đạt — {error_msg}"}), 422
 
-        logging.info("Translate success")
+        logger.info(f"[{rid}] Translate OK")
         return jsonify({"result": result})
 
+    except TimeoutError:
+        logger.error(f"[{rid}] OpenAI timeout sau 25s")
+        return jsonify({"error": "OpenAI timeout — thử lại sau"}), 504
+
     except Exception as e:
-        logging.exception("Translate failed")
+        logger.exception(f"[{rid}] Translate failed: {e}")
         return jsonify({"error": str(e)}), 500
+
+    finally:
+        # QUAN TRỌNG: luôn release semaphore dù thành công hay lỗi
+        _semaphore.release()
 
 
 if __name__ == "__main__":
