@@ -1,11 +1,12 @@
-# app.py — NOHU169 Translate Server v6.0
+# app.py — NOHU169 Translate Server v6.1
 # ═══════════════════════════════════════════════════════════════
-#  Thay đổi so với v5.7:
-#  - Model: gpt-4o-mini → gpt-4.1-mini / gpt-4o → gpt-4.1
-#  - OpenAI call có timeout=25s (tránh treo vô thời hạn)
-#  - Global error handler (Flask không crash khi exception)
-#  - Request Semaphore: tối đa 5 request OpenAI đồng thời
-#  - Structured logging với request_id để dễ debug
+#  Thay đổi so với v6.0:
+#  - [FIX] Thêm variants số vào GLOSSARY_VI_ZH:
+#      "đợi 1 chút", "chờ 1 chút", "đợi 1 lúc", v.v.
+#      (v6.0 chỉ có "đợi một chút" — số "1" không khớp)
+#  - [FIX] apply_vi_zh_glossary: nếu toàn bộ text đã là chữ Hán
+#      sau khi apply → trả về nguyên không gửi GPT (tránh nguyên văn)
+#  - [FIX] /version endpoint trả về "v6.1.0" để client tự cập nhật
 # ═══════════════════════════════════════════════════════════════
 from flask import Flask, request, jsonify, g
 from openai import OpenAI
@@ -247,6 +248,19 @@ GLOSSARY_VI_ZH = {
     "vui lòng":             "请",
     "vui lòng đợi":         "请稍等",
     "đợi một chút":         "稍等一下",
+    "đợi 1 chút":           "稍等一下",   # [FIX v6.1] variant số "1"
+    "đợi một lúc":          "稍等一下",
+    "đợi 1 lúc":            "稍等一下",   # [FIX v6.1] variant số "1"
+    "chờ một chút":         "稍等一下",
+    "chờ 1 chút":           "稍等一下",   # [FIX v6.1] variant số "1"
+    "chờ một lúc":          "稍等一下",
+    "chờ 1 lúc":            "稍等一下",   # [FIX v6.1] variant số "1"
+    "đợi chút":             "稍等",
+    "chờ chút":             "稍等",
+    "đợi tôi":              "等我一下",
+    "để tôi kiểm tra":      "让我查一下",
+    "tôi sẽ kiểm tra":      "我来查询",
+    "để tôi xem":           "让我看看",
     "kiểm tra":             "查询",
     "tra cứu":              "查询",
     "liên hệ":              "联系",
@@ -284,6 +298,16 @@ GLOSSARY_VI_ZH = {
     "đăng xuất và đăng nhập lại": "重新登录",
 }
 
+
+def _is_all_chinese(text: str) -> bool:
+    """Kiểm tra xem text có phải toàn chữ Hán/số/dấu câu không (không còn tiếng Việt)."""
+    stripped = re.sub(r'[\s\d,.\-!?@#$%^&*()_+=\[\]{};:\'\"<>/\\|`~]', '', text)
+    if not stripped:
+        return False
+    zh_count = sum(1 for c in stripped if '\u4e00' <= c <= '\u9fff')
+    return zh_count / len(stripped) >= 0.80
+
+
 def apply_vi_zh_glossary(text: str) -> tuple:
     sorted_terms = sorted(GLOSSARY_VI_ZH.keys(), key=len, reverse=True)
     placeholder_map = {}
@@ -297,6 +321,7 @@ def apply_vi_zh_glossary(text: str) -> tuple:
             idx += 1
     return text, placeholder_map
 
+
 def restore_placeholders(text: str, placeholder_map: dict) -> str:
     for ph, zh_term in placeholder_map.items():
         text = text.replace(f" {ph} ", zh_term)
@@ -304,6 +329,7 @@ def restore_placeholders(text: str, placeholder_map: dict) -> str:
         text = text.replace(f"{ph} ", zh_term)
         text = text.replace(ph, zh_term)
     return text
+
 
 def validate_vi_to_zh_quality(result: str, original_text: str) -> tuple:
     vi_diacritics = "àáâãèéêìíòóôõùúýăđơưạảấầẩẫậắằẳặẵổỗộổỡợụủứừựửữÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐƠƯẠẢẤẦẨẪẬẮẰẲẶẴỔỖỘỔỠỢỤỦỨỪỰỬỮ"
@@ -318,6 +344,7 @@ def validate_vi_to_zh_quality(result: str, original_text: str) -> tuple:
     if zh_chars == 0:
         return False, "Không có ký tự Hán — không phải tiếng Trung"
     return True, ""
+
 
 def build_system_prompt(target: str) -> str:
     lang_map = {
@@ -339,11 +366,13 @@ QUY TẮC:
 4. Số tiền (1000k, 2000k), ký tự đặc biệt giữ nguyên.
 5. Khi dịch sang Tiếng Trung: TOÀN BỘ phải là chữ Hán, không sót tiếng Việt. Tên riêng (Discord, Telegram, BOT) giữ nguyên Latin."""
 
+
 def get_client():
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise RuntimeError("Missing OPENAI_API_KEY environment variable")
     return OpenAI(api_key=api_key)
+
 
 # ── Request logging middleware ────────────────────────────────
 @app.before_request
@@ -379,7 +408,7 @@ def handle_405(e):
 # ── Endpoints ─────────────────────────────────────────────────
 @app.route("/", methods=["GET"])
 def health_check():
-    return jsonify({"status": "ok", "message": "Server is running", "version": "v6.0.0"})
+    return jsonify({"status": "ok", "message": "Server is running", "version": "v6.1.0"})
 
 @app.route("/ping", methods=["GET", "POST"])
 def ping():
@@ -387,7 +416,7 @@ def ping():
 
 @app.route("/version", methods=["GET"])
 def version():
-    return jsonify({"version": "v6.0.0"})
+    return jsonify({"version": "v6.1.0"})
 
 @app.route("/verify", methods=["POST"])
 def verify():
@@ -421,6 +450,24 @@ def translate():
         text, placeholder_map = apply_vi_zh_glossary(text)
         if placeholder_map:
             logger.info(f"[{rid}] Glossary: {len(placeholder_map)} terms → {list(placeholder_map.values())}")
+
+        # [FIX v6.1] Nếu sau khi restore placeholder, text đã là toàn chữ Hán
+        # → không cần gọi GPT, trả về luôn.
+        # Trường hợp: client gửi "等一下" (đã bị custom glossary phía client convert),
+        # hoặc toàn bộ text VI được glossary server resolve hết → tránh GPT trả nguyên văn ZH.
+        if placeholder_map:
+            preview = restore_placeholders(text, placeholder_map)
+        else:
+            preview = text
+
+        if _is_all_chinese(preview):
+            logger.info(f"[{rid}] Glossary fully resolved to ZH, skip GPT: {preview[:60]}")
+            return jsonify({"result": preview})
+
+        # Trường hợp: client gửi thẳng text ZH (không có placeholder nào match)
+        if not placeholder_map and _is_all_chinese(text):
+            logger.info(f"[{rid}] Input already ZH, return as-is: {text[:60]}")
+            return jsonify({"result": text})
 
     user_prompt = f"Dịch toàn bộ đoạn sau sang {target}, chỉ trả về bản dịch:\n\n{text}"
 
