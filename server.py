@@ -498,8 +498,7 @@ def translate():
                 raise RuntimeError("Empty response from model")
             return result.strip()
 
-        # Lần 1: gpt-4.1-mini — nhanh, rẻ
-        result = call_gpt("gpt-4.1-mini")
+        result = call_gpt("gpt-5.4-mini")
 
         # Khôi phục placeholder
         if placeholder_map:
@@ -519,7 +518,7 @@ def translate():
                 logger.warning(f"[{rid}] Quality fail (mini): {error_msg} — retry với gpt-4.1")
 
                 # Retry với gpt-4.1 — mạnh hơn
-                result = call_gpt("gpt-4.1")
+                result = call_gpt("gpt-5")
                 if placeholder_map:
                     result = restore_placeholders(result, placeholder_map)
 
