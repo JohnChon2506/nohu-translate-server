@@ -519,8 +519,8 @@ def translate():
                 raise RuntimeError("Empty response from model")
             return result.strip()
 
-        # Lần 1: gpt-5-mini — nhanh, chất lượng tốt
-        result = call_gpt("gpt-5-mini")
+        # Lần 1: gpt-4.1-mini — nhanh, rẻ, chất lượng tốt cho dịch chat
+        result = call_gpt("gpt-4.1-mini")
 
         # Khôi phục placeholder
         if placeholder_map:
@@ -537,16 +537,16 @@ def translate():
         if target == "Chinese":
             is_valid, error_msg = validate_vi_to_zh_quality(result, original_text)
             if not is_valid:
-                logger.warning(f"[{rid}] Quality fail (mini): {error_msg} — retry với gpt-5")
+                logger.warning(f"[{rid}] Quality fail (mini): {error_msg} — retry với gpt-4.1")
 
-                # Retry với gpt-5 — mạnh hơn
-                result = call_gpt("gpt-5")
+                # Retry với gpt-4.1 — mạnh hơn
+                result = call_gpt("gpt-4.1")
                 if placeholder_map:
                     result = restore_placeholders(result, placeholder_map)
 
                 is_valid, error_msg = validate_vi_to_zh_quality(result, original_text)
                 if not is_valid:
-                    logger.warning(f"[{rid}] Quality fail (gpt-5): {error_msg}")
+                    logger.warning(f"[{rid}] Quality fail (gpt-4.1): {error_msg}")
                     return jsonify({"error": f"Chất lượng dịch không đạt — {error_msg}"}), 422
 
         logger.info(f"[{rid}] Translate OK")
