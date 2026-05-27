@@ -481,25 +481,46 @@ def translate():
         client = get_client()
 
         def call_gpt(model_name: str) -> str:
-            """Gọi OpenAI với timeout cứng 25 giây."""
+            """Gọi OpenAI với timeout cứng 25 giây.
+            Tự động xử lý khác biệt giữa reasoning model (gpt-5, gpt-5-mini...)
+            và chat model thông thường (gpt-4.1-mini, gpt-5-chat-latest...).
+            """
             logger.info(f"[{rid}] Calling {model_name} | target={target} | len={len(text)}")
-            response = client.chat.completions.create(
-                model=model_name,
-                messages=[
+
+            # Reasoning models (gpt-5, gpt-5-mini, gpt-5-nano, o-series...)
+            # → dùng max_completion_tokens, KHÔNG nhận temperature tùy chỉnh
+            is_reasoning = (
+                model_name.startswith("gpt-5") and "chat" not in model_name
+                or model_name.startswith("o1")
+                or model_name.startswith("o3")
+                or model_name.startswith("o4")
+            )
+
+            kwargs = {
+                "model": model_name,
+                "messages": [
                     {"role": "system", "content": build_system_prompt(target)},
                     {"role": "user",   "content": user_prompt}
                 ],
-                temperature=0,
-                max_tokens=1024,
-                timeout=25      # ← timeout cứng — tránh treo vô thời hạn
-            )
+                "timeout": 25
+            }
+
+            if is_reasoning:
+                # Reasoning model: dùng max_completion_tokens, không set temperature
+                kwargs["max_completion_tokens"] = 1024
+            else:
+                # Chat model thông thường: dùng max_tokens + temperature
+                kwargs["max_tokens"]   = 1024
+                kwargs["temperature"]  = 0
+
+            response = client.chat.completions.create(**kwargs)
             result = response.choices[0].message.content
             if not result:
                 raise RuntimeError("Empty response from model")
             return result.strip()
 
-        # Lần 1: gpt-4.1-mini — nhanh, rẻ
-        result = call_gpt("gpt-4.1-mini")
+        # Lần 1: gpt-5-mini — nhanh, chất lượng tốt
+        result = call_gpt("gpt-5-mini")
 
         # Khôi phục placeholder
         if placeholder_map:
@@ -516,16 +537,16 @@ def translate():
         if target == "Chinese":
             is_valid, error_msg = validate_vi_to_zh_quality(result, original_text)
             if not is_valid:
-                logger.warning(f"[{rid}] Quality fail (mini): {error_msg} — retry với gpt-4.1")
+                logger.warning(f"[{rid}] Quality fail (mini): {error_msg} — retry với gpt-5")
 
-                # Retry với gpt-4.1 — mạnh hơn
-                result = call_gpt("gpt-4.1")
+                # Retry với gpt-5 — mạnh hơn
+                result = call_gpt("gpt-5")
                 if placeholder_map:
                     result = restore_placeholders(result, placeholder_map)
 
                 is_valid, error_msg = validate_vi_to_zh_quality(result, original_text)
                 if not is_valid:
-                    logger.warning(f"[{rid}] Quality fail (gpt-4.1): {error_msg}")
+                    logger.warning(f"[{rid}] Quality fail (gpt-5): {error_msg}")
                     return jsonify({"error": f"Chất lượng dịch không đạt — {error_msg}"}), 422
 
         logger.info(f"[{rid}] Translate OK")
