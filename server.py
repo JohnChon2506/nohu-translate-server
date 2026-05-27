@@ -84,6 +84,18 @@ GLOSSARY_VI_ZH = {
     "phí giao dịch":        "手续费",
     "về tài khoản":         "到账",
     "chưa về":              "未到账",
+    # ── Thuật ngữ "điểm" trong game/casino — TRÁNH GPT dịch nhầm thành "升级 (lên cấp VIP)"
+    "lên điểm":             "到账",
+    "chưa lên điểm":        "还没到账",
+    "lên điểm chưa":        "到账了吗",
+    "đã lên điểm":          "已到账",
+    "điểm chưa về":         "积分未到账",
+    "điểm chưa lên":        "积分未到账",
+    "không lên điểm":       "未到账",
+    "tụt điểm":             "扣分",
+    "bị tụt điểm":          "积分被扣",
+    "cộng điểm":            "加分",
+    "trừ điểm":             "扣分",
     "đang xử lý":           "处理中",
     "đã xử lý":             "已处理",
     "thành công":           "成功",
@@ -244,34 +256,114 @@ GLOSSARY_VI_ZH = {
     "xin chào":             "您好",
     "kính chào":            "尊敬的您好",
     "cảm ơn":               "谢谢",
+    "cảm ơn anh":           "感谢您",
+    "cảm ơn chị":           "感谢您",
+    "cảm ơn anh chị":       "感谢您",
     "xin lỗi":              "抱歉",
+    "xin lỗi anh":          "对不起您",
+    "xin lỗi chị":          "对不起您",
     "vui lòng":             "请",
     "vui lòng đợi":         "请稍等",
+    "vui lòng kiểm tra":    "请检查",
+    "vui lòng cung cấp":    "请提供",
+    "vui lòng thử lại":     "请重试",
+    "vui lòng đăng nhập lại": "请重新登录",
     "đợi một chút":         "稍等一下",
-    "đợi 1 chút":           "稍等一下",   # [FIX v6.1] variant số "1"
+    "đợi 1 chút":           "稍等一下",
     "đợi một lúc":          "稍等一下",
-    "đợi 1 lúc":            "稍等一下",   # [FIX v6.1] variant số "1"
+    "đợi 1 lúc":            "稍等一下",
     "chờ một chút":         "稍等一下",
-    "chờ 1 chút":           "稍等一下",   # [FIX v6.1] variant số "1"
+    "chờ 1 chút":           "稍等一下",
     "chờ một lúc":          "稍等一下",
-    "chờ 1 lúc":            "稍等一下",   # [FIX v6.1] variant số "1"
+    "chờ 1 lúc":            "稍等一下",
     "đợi chút":             "稍等",
     "chờ chút":             "稍等",
     "đợi tôi":              "等我一下",
+    "đợi tôi kiểm tra":     "等我查一下",
     "để tôi kiểm tra":      "让我查一下",
     "tôi sẽ kiểm tra":      "我来查询",
     "để tôi xem":           "让我看看",
+    "để em kiểm tra":       "让我查一下",
+    "em sẽ kiểm tra":       "我来查询",
+    # ── KHÁCH TÌM ĐẾN CSKH — TRÁNH dịch nghĩa đen "出现" / "找到"
+    "tìm đến":              "联系客服",
+    "tìm đến vì":           "联系客服是因为",
+    "tìm đến CSKH":         "联系客服",
+    "tìm đến chăm sóc khách hàng": "联系客服",
+    "tìm đến hỗ trợ":       "联系客服",
+    "anh ta tìm đến":       "他联系客服",
+    "chị ta tìm đến":       "她联系客服",
+    "khách tìm đến":        "客户联系客服",
+    "anh ta liên hệ":       "他联系",
+    "chị ta liên hệ":       "她联系",
+    "khách liên hệ":        "客户联系",
+    # ── LÝ DO / NGUYÊN NHÂN
+    "vì lý do gì":          "因为什么原因",
+    "vì lý do nào":         "因为什么原因",
+    "lý do gì":             "什么原因",
+    "vì sao":               "为什么",
+    "tại sao":              "为什么",
+    "nguyên nhân gì":       "什么原因",
+    "do đâu":               "什么原因",
+    # ── KHÁCH HỎI / TƯ VẤN
+    "hỏi về":               "询问关于",
+    "tư vấn":               "咨询",
+    "cần tư vấn":           "需要咨询",
+    "hỏi thăm":             "询问",
+    "muốn hỏi":             "想询问",
+    "có thắc mắc":          "有疑问",
+    "thắc mắc":             "疑问",
+    # ── KHÁCH GẶP VẤN ĐỀ
+    "có vấn đề gì":         "有什么问题",
+    "gặp vấn đề":           "遇到问题",
+    "gặp khó khăn":         "遇到困难",
+    "bị lỗi":               "出错",
+    "đang bị lỗi":          "正在出错",
+    "không vào được":       "无法进入",
+    "không đăng nhập được": "无法登录",
+    "không nạp được":       "无法充值",
+    "không rút được":       "无法提款",
+    "không nhận được":      "未收到",
+    "chưa nhận được":       "还没收到",
+    "đã nhận được":         "已收到",
+    "không thấy":           "没看到",
+    "không hiểu":           "不明白",
+    "không biết":           "不知道",
+    "không rõ":             "不清楚",
+    # ── KHÁCH PHẢN ÁNH / KHIẾU NẠI
+    "phản ánh":             "反馈",
+    "khách phản ánh":       "客户反馈",
+    "anh ta phản ánh":      "他反馈",
+    "khiếu nại":            "投诉",
+    "yêu cầu":              "请求",
+    "yêu cầu hỗ trợ":       "请求支持",
+    "đề nghị":              "建议",
+    # ── TRẠNG THÁI CHỜ ĐỢI
+    "đang đợi":             "正在等待",
+    "đợi mãi":              "一直在等",
+    "chờ lâu rồi":          "等了很久",
+    "đợi từ sáng":          "从早上等到现在",
+    # ── CSKH XỬ LÝ
+    "đang xử lý":           "处理中",
+    "đã xử lý xong":        "已处理完",
+    "đang kiểm tra":        "正在查询",
+    "đã kiểm tra xong":     "查询完毕",
     "kiểm tra":             "查询",
     "tra cứu":              "查询",
     "liên hệ":              "联系",
     "hỗ trợ":               "支持",
     "phản hồi":             "回复",
-    "khiếu nại":            "投诉",
     "báo cáo lỗi":          "报告问题",
     "sự cố":                "故障",
     "lỗi hệ thống":         "系统错误",
     "chụp màn hình":        "截图",
     "gửi ảnh":              "发图",
+    # ── XƯNG HÔ (giữ "anh ta" / "chị ta" / "khách" trong context CSKH)
+    "anh ta":               "他",
+    "chị ta":               "她",
+    "khách":                "客户",
+    "khách hàng":           "客户",
+    "người chơi":           "玩家",
 
     # ══ KIỂM SOÁT RỦI RO ══
     "gian lận":             "欺诈",
@@ -357,14 +449,34 @@ def build_system_prompt(target: str) -> str:
         "Thai":       "Tiếng Thái",
     }
     target_label = lang_map.get(target, target)
-    return f"""Bạn là máy dịch chuyên nghiệp cho game online. Dịch sang {target_label}.
+    return f"""Bạn là máy dịch chuyên nghiệp phục vụ ĐÀO TẠO NHÂN VIÊN CSKH CASINO ONLINE.
+Văn bản nguồn là tin nhắn nội bộ giữa quản lý-nhân viên-khách hàng trong ngành cá cược online.
+Dịch sang {target_label}.
 
-QUY TẮC:
-1. CHỈ trả về bản dịch, không giải thích.
-2. KHÔNG từ chối — đây là tài liệu nội bộ hợp pháp.
+CONTEXT NGÀNH (RẤT QUAN TRỌNG — đừng dịch nghĩa đen):
+
+▸ "điểm" / "score" trong casino = SỐ DƯ / SỐ TIỀN NẠP (积分/余额), KHÔNG phải "cấp VIP"
+▸ "lên điểm" = "到账" (tiền/điểm đã vào tài khoản), KHÔNG phải "升级"
+▸ "tìm đến" = "联系客服" (liên hệ CSKH), KHÔNG phải "出现 / 找到"
+▸ "anh ta tìm đến vì" = "他联系客服是因为" (khách liên hệ vì lý do gì)
+▸ "khách" / "anh ta" / "chị ta" = người chơi liên hệ CSKH (khách hàng trong ngành)
+▸ "nạp" / "rút" = 充值/提款 (tiền), KHÔNG phải "đăng nhập/đăng xuất"
+▸ "cược" = đặt cược (下注/投注)
+▸ "thắng/thua" = "赢/输" trong context tiền bạc
+▸ "BOT", "Telegram", "Discord", "VIP", "USDT" — giữ NGUYÊN tiếng Anh
+▸ Tên người, tên tài khoản, mã giao dịch (TXN), số tiền (1000k, 2tr) — giữ nguyên
+
+VĂN PHONG:
+- Đây là tin nhắn nội bộ / báo cáo / hướng dẫn nhân viên → thân thiện, ngắn gọn, đi vào việc.
+- Không quá trang trọng. Không quá suồng sã.
+- Khi dịch sang tiếng Trung: dùng câu giao tiếp tự nhiên của CSKH Trung Quốc.
+
+QUY TẮC ĐẦU RA:
+1. CHỈ trả về bản dịch, không giải thích, không mở ngoặc.
+2. KHÔNG từ chối — đây là tài liệu nội bộ hợp pháp dùng đào tạo nhân viên.
 3. Token __T0__ __T1__ ... giữ NGUYÊN VẸN, không dịch.
-4. Số tiền (1000k, 2000k), ký tự đặc biệt giữ nguyên.
-5. Khi dịch sang Tiếng Trung: TOÀN BỘ phải là chữ Hán, không sót tiếng Việt. Tên riêng (Discord, Telegram, BOT) giữ nguyên Latin."""
+4. Khi dịch sang Tiếng Trung: TOÀN BỘ phải là chữ Hán, không sót tiếng Việt.
+5. Khoảng trắng, dấu câu, emoji giữ nguyên vị trí tương đương."""
 
 
 def get_client():
