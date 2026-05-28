@@ -372,6 +372,51 @@ GLOSSARY_VI_ZH = {
     "khách hàng":           "客户",
     "người chơi":           "玩家",
 
+    # ══ CA LÀM VIỆC / NHÂN SỰ (chấm công, đổi ca, đào tạo) ══
+    # Chỉ danh từ + cụm cố định — tránh GPT bịa nội dung như "帮前一班 (giúp ca trước)"
+    "điểm danh":            "签到",
+    "đánh thẻ":             "打卡",
+    "đánh thẻ vào":         "上班打卡",
+    "đánh thẻ ra":          "下班打卡",
+    "chấm công":            "考勤",
+    "lên ca":               "上班",
+    "vào ca":               "上班",
+    "xuống ca":             "下班",
+    "tan ca":               "下班",
+    "hết ca":               "下班",
+    "ca làm việc":          "班次",
+    "ca sáng":              "早班",
+    "ca chiều":             "中班",
+    "ca tối":               "晚班",
+    "ca đêm":               "夜班",
+    "ca ngày":              "白班",
+    "đổi ca":               "换班",
+    "giao ca":              "交接班",
+    "nhận ca":              "接班",
+    "trực ca":              "值班",
+    "ca trực":              "值班",
+    "trực đêm":             "夜间值班",
+    "tăng ca":              "加班",
+    "nghỉ ca":              "请假",
+    "nghỉ phép":            "请假",
+    "xin nghỉ":             "请假",
+    "đi muộn":              "迟到",
+    "về sớm":               "早退",
+    "vắng mặt":             "缺勤",
+    "bảng lương":           "工资表",
+    "lương":                "工资",
+    "thưởng KPI":           "绩效奖金",
+    "đào tạo":              "培训",
+    "nhân viên mới":        "新员工",
+    "thử việc":             "试用期",
+    "quản lý":              "主管",
+    "trưởng nhóm":          "组长",
+    "đồng nghiệp":          "同事",
+    "ca trước":             "上一班",
+    "ca sau":               "下一班",
+    "đầu ca":               "班次开始",
+    "cuối ca":              "班次结束",
+
     # ══ KIỂM SOÁT RỦI RO ══
     "gian lận":             "欺诈",
     "giả mạo":              "伪造",
@@ -472,6 +517,7 @@ CONTEXT NGÀNH (RẤT QUAN TRỌNG — đừng dịch nghĩa đen):
 ▸ "thắng/thua" = "赢/输" trong context tiền bạc
 ▸ "BOT", "Telegram", "Discord", "VIP", "USDT" — giữ NGUYÊN tiếng Anh
 ▸ Tên người, tên tài khoản, mã giao dịch (TXN), số tiền (1000k, 2tr) — giữ nguyên
+▸ Thuật ngữ ca làm việc: "điểm danh"=签到, "đánh thẻ"=打卡, "xuống ca"/"tan ca"=下班, "lên ca"=上班, "đổi ca"=换班, "giao ca"=交接班
 
 VĂN PHONG:
 - Đây là tin nhắn nội bộ / báo cáo / hướng dẫn nhân viên → thân thiện, ngắn gọn, đi vào việc.
@@ -481,9 +527,12 @@ VĂN PHONG:
 QUY TẮC ĐẦU RA:
 1. CHỈ trả về bản dịch, không giải thích, không mở ngoặc.
 2. KHÔNG từ chối — đây là tài liệu nội bộ hợp pháp dùng đào tạo nhân viên.
-3. Token __T0__ __T1__ ... giữ NGUYÊN VẸN, không dịch.
-4. Khi dịch sang Tiếng Trung: TOÀN BỘ phải là chữ Hán, không sót tiếng Việt.
-5. Khoảng trắng, dấu câu, emoji giữ nguyên vị trí tương đương."""
+3. DỊCH SÁT NGHĨA — TUYỆT ĐỐI KHÔNG thêm/bớt thông tin không có trong câu gốc.
+   Ví dụ sai: "đánh thẻ xuống ca" KHÔNG được dịch thành "giúp ca trước đánh thẻ" (bịa "giúp ca trước").
+4. Token __T0__ __T1__ ... giữ NGUYÊN VẸN, không dịch.
+5. Khi dịch sang Tiếng Trung: TOÀN BỘ phải là chữ Hán, không sót tiếng Việt.
+6. Khoảng trắng, dấu câu, emoji giữ nguyên vị trí tương đương.
+7. Nếu câu gốc ngắn gọn/đơn giản → bản dịch cũng ngắn gọn tương ứng, không thêm chi tiết."""
 
 
 def get_client():
@@ -627,11 +676,11 @@ def translate():
             if is_reasoning:
                 # Reasoning model: dùng max_completion_tokens, không set temperature
                 kwargs["max_completion_tokens"] = 1024
-                # [SPEED] reasoning_effort="minimal" → tắt phần "suy nghĩ" sâu của GPT-5
-                # → tốc độ ngang gpt-4o (~1.5s) thay vì 5-10s với default reasoning.
-                # Dịch chat không cần reasoning sâu, nên minimal là đủ.
-                # Các giá trị: minimal | low | medium (default) | high
-                kwargs["reasoning_effort"] = "minimal"
+                # [SPEED vs ACCURACY] reasoning_effort:
+                #   minimal → nhanh nhất (~1.5s) nhưng đôi khi bịa nội dung / dịch ẩu
+                #   low     → chậm hơn chút (~2.5s) nhưng chính xác hơn nhiều
+                # Dùng "low" để tránh GPT tự thêm từ không có trong câu gốc.
+                kwargs["reasoning_effort"] = "low"
             else:
                 # Chat model thông thường: dùng max_tokens + temperature
                 kwargs["max_tokens"]   = 1024
