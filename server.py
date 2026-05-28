@@ -201,6 +201,11 @@ GLOSSARY_VI_ZH = {
     "CSKH":                 "客服",
 
     # ══ CÁ CƯỢC ══
+    # ── Chỉ chứa DANH TỪ chuyên ngành (cụm dài trước cụm ngắn).
+    #    KHÔNG đưa cụm động từ vào → để GPT tự lo trật tự từ + ngữ pháp tiếng Trung.
+    "đơn đặt cược":         "注单",
+    "đơn cược":             "注单",
+    "phiếu đặt cược":       "注单",
     "đặt cược":             "下注",
     "tỷ lệ cược":           "赔率",
     "phiếu cược":           "注单",
@@ -211,14 +216,16 @@ GLOSSARY_VI_ZH = {
     "kết toán":             "结算",
     "đã kết toán":          "已结算",
     "chưa kết toán":        "未结算",
-    "hủy phiếu cược":       "取消注单",
     "phiếu cược hợp lệ":    "有效注单",
     "phiếu cược không hợp lệ": "无效注单",
     "đang chờ kết quả":     "待开奖",
-    "đã thắng":             "已赢",
-    "đã thua":              "已输",
     "tiền thắng":           "赢利",
     "tiền thua":            "亏损",
+    # ── DANH TỪ chỉ giao dịch (GPT tự đặt vào đúng vị trí câu)
+    "giao dịch này":        "这笔交易",
+    "giao dịch đó":         "那笔交易",
+    "đơn này":              "这单",
+    "đơn đó":               "那单",
 
     # ══ THỂ THAO ══
     "kèo chấp":             "让球盘",
