@@ -1,13 +1,3 @@
-# app.py — NOHU169 Translate Server v6.1
-# ═══════════════════════════════════════════════════════════════
-#  Thay đổi so với v6.0:
-#  - [FIX] Thêm variants số vào GLOSSARY_VI_ZH:
-#      "đợi 1 chút", "chờ 1 chút", "đợi 1 lúc", v.v.
-#      (v6.0 chỉ có "đợi một chút" — số "1" không khớp)
-#  - [FIX] apply_vi_zh_glossary: nếu toàn bộ text đã là chữ Hán
-#      sau khi apply → trả về nguyên không gửi GPT (tránh nguyên văn)
-#  - [FIX] /version endpoint trả về "v6.1.0" để client tự cập nhật
-# ═══════════════════════════════════════════════════════════════
 from flask import Flask, request, jsonify, g
 from openai import OpenAI
 import os
@@ -696,8 +686,8 @@ def translate():
                 raise RuntimeError("Empty response from model")
             return result.strip()
 
-        # Lần 1: gpt-5-mini với reasoning_effort=minimal — nhanh ~1.5s, chất lượng tốt
-        result = call_gpt("gpt-5-mini")
+        # Lần 1: gpt-5-chat-latest — GPT-5 bản chat (KHÔNG reasoning) → nhanh ~1.5s, chất lượng cao
+        result = call_gpt("gpt-5-chat-latest")
 
         # Khôi phục placeholder
         if placeholder_map:
@@ -714,9 +704,10 @@ def translate():
         if target == "Chinese":
             is_valid, error_msg = validate_vi_to_zh_quality(result, original_text)
             if not is_valid:
-                logger.warning(f"[{rid}] Quality fail (mini): {error_msg} — retry với gpt-5")
+                logger.warning(f"[{rid}] Quality fail (chat): {error_msg} — retry với gpt-5 reasoning")
 
-                # Retry với gpt-5 (cũng reasoning_effort=minimal) — chất lượng cao hơn
+                # Retry với gpt-5 (reasoning) — chỉ khi chất lượng kém, hiếm khi xảy ra
+                # nên chậm hơn cũng chấp nhận được
                 result = call_gpt("gpt-5")
                 if placeholder_map:
                     result = restore_placeholders(result, placeholder_map)
