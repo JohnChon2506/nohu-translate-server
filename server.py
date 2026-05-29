@@ -353,9 +353,11 @@ GLOSSARY_VI_ZH = {
     # ── CSKH XỬ LÝ
     "đang xử lý":           "处理中",
     "đã xử lý xong":        "已处理完",
-    "đang kiểm tra":        "正在查询",
-    "đã kiểm tra xong":     "查询完毕",
-    "kiểm tra":             "查询",
+    "đang kiểm tra":        "正在查看",
+    "đã kiểm tra xong":     "已查看完毕",
+    # LƯU Ý: KHÔNG đưa "kiểm tra" đơn lẻ vào glossary.
+    #   "kiểm tra" đa nghĩa (检查/确认/查询/看) tùy context → để GPT tự quyết.
+    #   Chỉ "tra cứu" mới chắc chắn = 查询 (look up dữ liệu).
     "tra cứu":              "查询",
     "liên hệ":              "联系",
     "hỗ trợ":               "支持",
@@ -515,6 +517,8 @@ CONTEXT NGÀNH (RẤT QUAN TRỌNG — đừng dịch nghĩa đen):
 ▸ "nạp" / "rút" = 充值/提款 (tiền), KHÔNG phải "đăng nhập/đăng xuất"
 ▸ "cược" = đặt cược (下注/投注)
 ▸ "thắng/thua" = "赢/输" trong context tiền bạc
+▸ "kiểm tra" đa nghĩa tùy context: kiểm tra data=查询/查看, kiểm tra lại xem được chưa=确认/检查, kiểm tra giúp=看一下. CHỌN nghĩa hợp ngữ cảnh, đừng mặc định 查询.
+▸ "hậu đài"=后台 (backend), "tiền đài"=前台 (frontend)
 ▸ "BOT", "Telegram", "Discord", "VIP", "USDT" — giữ NGUYÊN tiếng Anh
 ▸ Tên người, tên tài khoản, mã giao dịch (TXN), số tiền (1000k, 2tr) — giữ nguyên
 ▸ Thuật ngữ ca làm việc: "điểm danh"=签到, "đánh thẻ"=打卡, "xuống ca"/"tan ca"=下班, "lên ca"=上班, "đổi ca"=换班, "giao ca"=交接班
