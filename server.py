@@ -509,6 +509,8 @@ CONTEXT NGÀNH (RẤT QUAN TRỌNG — đừng dịch nghĩa đen):
 ▸ "thắng/thua" = "赢/输" trong context tiền bạc
 ▸ "kiểm tra" đa nghĩa tùy context: kiểm tra data=查询/查看, kiểm tra lại xem được chưa=确认/检查, kiểm tra giúp=看一下. CHỌN nghĩa hợp ngữ cảnh, đừng mặc định 查询.
 ▸ "hậu đài"=后台 (backend), "tiền đài"=前台 (frontend)
+▸ "đài" + tên trang/thương hiệu = tên đó + 站 (ĐẢO TRẬT TỰ). VD: "Đài UY88"→"UY88站", "đài SV88"→"SV88站". KHÔNG dịch thành "站 UY88" (sai trật tự tiếng Trung). Tên riêng/thương hiệu LUÔN đứng TRƯỚC loại từ (站/平台).
+▸ TRẬT TỰ TỪ: trong tiếng Trung, tên riêng (UY88, SV88...) đứng TRƯỚC danh từ loại (站, 平台, 账号). VD "tài khoản ABC"→"ABC账号", KHÔNG phải "账号ABC".
 ▸ "BOT", "Telegram", "Discord", "VIP", "USDT" — giữ NGUYÊN tiếng Anh
 ▸ Tên người, tên tài khoản, mã giao dịch (TXN), số tiền (1000k, 2tr) — giữ nguyên
 ▸ Thuật ngữ ca làm việc: "điểm danh"=签到, "đánh thẻ"=打卡, "xuống ca"/"tan ca"=下班, "lên ca"=上班, "đổi ca"=换班, "giao ca"=交接班
