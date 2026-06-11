@@ -477,11 +477,18 @@ def fix_word_order(text: str) -> str:
     if not text:
         return text
     # Các loại từ thường bị đảo sai
-    classifiers = "站|平台|账号|账户|彩票|游戏"
-    # Mẫu: <loại từ> + (khoảng trắng tùy chọn) + <TÊN LATIN: 2+ ký tự chữ in hoa/số, bắt đầu bằng chữ cái>
-    # Đảo thành: <TÊN LATIN><loại từ>
-    pattern = re.compile(r'(' + classifiers + r')\s*([A-Z][A-Za-z0-9]{1,})')
-    text = pattern.sub(lambda m: m.group(2) + m.group(1), text)
+    classifiers = "站|平台|账号|账户|彩票|游戏|厅"
+    # Tên Latin: chuỗi chữ+số có ÍT NHẤT 1 chữ cái (UY88, 789P, 88BET, PG...).
+    # Không khớp số thuần (vd "站 100" = trạm 100) để tránh sửa nhầm.
+    pattern = re.compile(r'(' + classifiers + r')\s*([A-Za-z0-9]*[A-Za-z][A-Za-z0-9]*)')
+
+    def _swap(m):
+        name = m.group(2)
+        if len(name) < 2:        # tên 1 ký tự → bỏ qua, tránh false positive
+            return m.group(0)
+        return name + m.group(1)
+
+    text = pattern.sub(_swap, text)
     return text
 
 
@@ -528,6 +535,7 @@ CONTEXT NGÀNH (RẤT QUAN TRỌNG — đừng dịch nghĩa đen):
 ▸ "kiểm tra" đa nghĩa tùy context: kiểm tra data=查询/查看, kiểm tra lại xem được chưa=确认/检查, kiểm tra giúp=看一下. CHỌN nghĩa hợp ngữ cảnh, đừng mặc định 查询.
 ▸ "hậu đài"=后台 (backend), "tiền đài"=前台 (frontend)
 ▸ "đài" + tên trang/thương hiệu = tên đó + 站 (ĐẢO TRẬT TỰ). VD: "Đài UY88"→"UY88站", "đài SV88"→"SV88站". KHÔNG dịch thành "站 UY88" (sai trật tự tiếng Trung). Tên riêng/thương hiệu LUÔN đứng TRƯỚC loại từ (站/平台).
+▸ "sảnh" + tên hãng game = tên đó + 厅 (ĐẢO TRẬT TỰ). VD: "sảnh PG"→"PG厅", "sảnh AG"→"AG厅", "sảnh PT"→"PT厅". KHÔNG dịch thành "厅 PG". Tên hãng LUÔN đứng TRƯỚC 厅.
 ▸ TRẬT TỰ TỪ: trong tiếng Trung, tên riêng (UY88, SV88...) đứng TRƯỚC danh từ loại (站, 平台, 账号). VD "tài khoản ABC"→"ABC账号", KHÔNG phải "账号ABC".
 ▸ "BOT", "Telegram", "Discord", "VIP", "USDT" — giữ NGUYÊN tiếng Anh
 ▸ Tên người, tên tài khoản, mã giao dịch (TXN), số tiền (1000k, 2tr) — giữ nguyên
