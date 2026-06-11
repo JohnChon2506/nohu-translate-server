@@ -467,6 +467,24 @@ def restore_placeholders(text: str, placeholder_map: dict) -> str:
     return text
 
 
+def fix_word_order(text: str) -> str:
+    """
+    Sửa trật tự từ tiếng Trung: loại từ (站/平台/账号...) phải đứng SAU tên riêng
+    Latin (UY88, NOHU, SV88...), không phải trước.
+    VD model dịch sai "站 NOHU" / "站NOHU" → sửa thành "NOHU站".
+    Chỉ áp dụng cho tên Latin (chữ in hoa + có thể kèm số) để không đụng tiếng Trung thường.
+    """
+    if not text:
+        return text
+    # Các loại từ thường bị đảo sai
+    classifiers = "站|平台|账号|账户|彩票|游戏"
+    # Mẫu: <loại từ> + (khoảng trắng tùy chọn) + <TÊN LATIN: 2+ ký tự chữ in hoa/số, bắt đầu bằng chữ cái>
+    # Đảo thành: <TÊN LATIN><loại từ>
+    pattern = re.compile(r'(' + classifiers + r')\s*([A-Z][A-Za-z0-9]{1,})')
+    text = pattern.sub(lambda m: m.group(2) + m.group(1), text)
+    return text
+
+
 def validate_vi_to_zh_quality(result: str, original_text: str) -> tuple:
     vi_diacritics = "àáâãèéêìíòóôõùúýăđơưạảấầẩẫậắằẳặẵổỗộổỡợụủứừựửữÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐƠƯẠẢẤẦẨẪẬẮẰẲẶẴỔỖỘỔỠỢỤỦỨỪỰỬỮ"
     vi_chars          = sum(1 for c in result        if c in vi_diacritics)
@@ -718,6 +736,10 @@ def translate():
                 if not is_valid:
                     logger.warning(f"[{rid}] Quality fail (gpt-5): {error_msg}")
                     return jsonify({"error": f"Chất lượng dịch không đạt — {error_msg}"}), 422
+
+        # Sửa trật tự từ: "站 NOHU" → "NOHU站" (loại từ phải đứng sau tên riêng)
+        if target == "Chinese":
+            result = fix_word_order(result)
 
         logger.info(f"[{rid}] Translate OK")
         return jsonify({"result": result})
