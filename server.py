@@ -30,6 +30,11 @@ VALID_KEYS = {
 MAX_CONCURRENT = 5
 _semaphore = threading.Semaphore(MAX_CONCURRENT)
 
+# Model dịch. gpt-5-chat-latest đã bị OpenAI ngừng từ 23/07/2026,
+# gpt-5 sẽ ngừng 11/12/2026 → dùng gpt-5.6-sol (reasoning model).
+# Cho phép ghi đè bằng biến môi trường OPENAI_MODEL trên Railway nếu sau này đổi model.
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.6-sol")
+
 # ── GLOSSARY VI→ZH ───────────────────────────────────────────
 GLOSSARY_VI_ZH = {
     # ══ SẢNH GAME ══
@@ -670,7 +675,7 @@ def translate():
     try:
         client = get_client()
 
-        def call_gpt(model_name: str) -> str:
+        def call_gpt(model_name: str, effort: str = "low") -> str:
             """Gọi OpenAI với timeout cứng 25 giây.
             Tự động xử lý khác biệt giữa reasoning model (gpt-5, gpt-5-mini...)
             và chat model thông thường (gpt-4.1-mini, gpt-5-chat-latest...).
@@ -697,12 +702,13 @@ def translate():
 
             if is_reasoning:
                 # Reasoning model: dùng max_completion_tokens, không set temperature
-                kwargs["max_completion_tokens"] = 1024
+                # max_completion_tokens tính CẢ reasoning token → để rộng hơn 1024
+                # kẻo model dùng hết ngân sách để "nghĩ" rồi trả nội dung rỗng.
+                kwargs["max_completion_tokens"] = 4096
                 # [SPEED vs ACCURACY] reasoning_effort:
-                #   minimal → nhanh nhất (~1.5s) nhưng đôi khi bịa nội dung / dịch ẩu
-                #   low     → chậm hơn chút (~2.5s) nhưng chính xác hơn nhiều
-                # Dùng "low" để tránh GPT tự thêm từ không có trong câu gốc.
-                kwargs["reasoning_effort"] = "low"
+                #   low    → mặc định, nhanh và đủ chính xác cho dịch CSKH
+                #   medium → dùng cho lần retry khi chất lượng kém
+                kwargs["reasoning_effort"] = effort
             else:
                 # Chat model thông thường: dùng max_tokens + temperature
                 kwargs["max_tokens"]   = 1024
@@ -714,8 +720,8 @@ def translate():
                 raise RuntimeError("Empty response from model")
             return result.strip()
 
-        # Lần 1: gpt-5-chat-latest — GPT-5 bản chat (KHÔNG reasoning) → nhanh ~1.5s, chất lượng cao
-        result = call_gpt("gpt-5-chat-latest")
+        # Lần 1: gpt-5.6-sol với reasoning_effort=low
+        result = call_gpt(OPENAI_MODEL)
 
         # Khôi phục placeholder
         if placeholder_map:
@@ -732,17 +738,17 @@ def translate():
         if target == "Chinese":
             is_valid, error_msg = validate_vi_to_zh_quality(result, original_text)
             if not is_valid:
-                logger.warning(f"[{rid}] Quality fail (chat): {error_msg} — retry với gpt-5 reasoning")
+                logger.warning(f"[{rid}] Quality fail (lần 1): {error_msg} — retry với reasoning_effort=medium")
 
-                # Retry với gpt-5 (reasoning) — chỉ khi chất lượng kém, hiếm khi xảy ra
-                # nên chậm hơn cũng chấp nhận được
-                result = call_gpt("gpt-5")
+                # Retry cùng model nhưng suy luận sâu hơn — chỉ khi chất lượng kém,
+                # hiếm khi xảy ra nên chậm hơn cũng chấp nhận được
+                result = call_gpt(OPENAI_MODEL, effort="medium")
                 if placeholder_map:
                     result = restore_placeholders(result, placeholder_map)
 
                 is_valid, error_msg = validate_vi_to_zh_quality(result, original_text)
                 if not is_valid:
-                    logger.warning(f"[{rid}] Quality fail (gpt-5): {error_msg}")
+                    logger.warning(f"[{rid}] Quality fail (retry): {error_msg}")
                     return jsonify({"error": f"Chất lượng dịch không đạt — {error_msg}"}), 422
 
         # Sửa trật tự từ: "站 NOHU" → "NOHU站" (loại từ phải đứng sau tên riêng)
